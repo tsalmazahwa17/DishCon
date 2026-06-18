@@ -46,18 +46,28 @@ export async function POST(req: Request) {
     const storageMethod = body.storage_method || body.storage || "-";
     const halalStatus = body.halal_status || (body.halal ? "halal" : "tidak diklaim halal");
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-        "X-Title": "DishCon AI"
+    const response = await fetch(
+  "https://openrouter.ai/api/v1/chat/completions",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer":
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "https://dishcon.vercel.app",
+      "X-Title": "DishCon AI",
+    },
+    body: JSON.stringify({
+      model:
+        process.env.OPENROUTER_MODEL ||
+        "google/gemini-2.5-flash",
+
+      temperature: 0.2,
+
+      response_format: {
+        type: "json_object",
       },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
