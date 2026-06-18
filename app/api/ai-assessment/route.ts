@@ -59,16 +59,19 @@ export async function POST(req: Request) {
       "X-Title": "DishCon AI",
     },
     body: JSON.stringify({
-      model:
-        process.env.OPENROUTER_MODEL ||
-        "google/gemini-2.5-flash",
+  model:
+    process.env.OPENROUTER_MODEL ||
+    "google/gemma-3-12b-it:free",
 
-      temperature: 0.2,
+  temperature: 0.2,
 
-      response_format: {
-        type: "json_object",
-      },
-        messages: [
+  max_tokens: 800,
+
+  response_format: {
+    type: "json_object",
+  },
+
+  messages: [
           {
             role: "system",
             content: `Kamu adalah AI Food Safety, Nutrition, dan Food Expiry Expert untuk aplikasi DishCon.
@@ -123,7 +126,8 @@ Analisis makanan tersebut.`
     });
 
     const data = await response.json();
-
+console.log("OPENROUTER STATUS:", response.status);
+console.log("OPENROUTER DATA:", JSON.stringify(data, null, 2));
     if (!response.ok) {
       return NextResponse.json({ error: "Gagal menghubungi OpenRouter", detail: data }, { status: response.status });
     }
@@ -142,14 +146,60 @@ Analisis makanan tersebut.`
 
     const nutrition = parsed?.nutrition || {};
     const expiry = parsed?.expiry || {};
-    const normalizedExpiry = {
-      risk_level: normalizeRisk(expiry.risk_level),
-      safe_hours: pickNumber(expiry.safe_hours),
-      recommended_consume_before: String(expiry.recommended_consume_before || "-"),
-      storage_recommendation: String(expiry.storage_recommendation || "-"),
-      food_safety_warnings: Array.isArray(expiry.food_safety_warnings) ? expiry.food_safety_warnings.map(String) : [],
-      expiry_reason: String(expiry.expiry_reason || "-")
-    };
+    const safeHours = pickNumber(expiry.safe_hours);
+
+let calculatedRisk = "medium";
+
+const foodName = body.food_name?.toLowerCase() || "";
+
+const highRiskFoods = [
+  "ayam",
+  "daging",
+  "sapi",
+  "ikan",
+  "seafood",
+  "udang",
+  "telur",
+  "susu",
+  "santan"
+];
+
+const containsHighRiskFood = highRiskFoods.some(item =>
+  foodName.includes(item)
+);
+
+if (containsHighRiskFood) {
+  if (safeHours >= 24) {
+    calculatedRisk = "medium";
+  } else {
+    calculatedRisk = "high";
+  }
+} else {
+  if (safeHours >= 48) {
+    calculatedRisk = "low";
+  } else if (safeHours >= 12) {
+    calculatedRisk = "medium";
+  } else {
+    calculatedRisk = "high";
+  }
+}
+
+const normalizedExpiry = {
+  risk_level: calculatedRisk,
+  safe_hours: safeHours,
+  recommended_consume_before: String(
+    expiry.recommended_consume_before || "-"
+  ),
+  storage_recommendation: String(
+    expiry.storage_recommendation || "-"
+  ),
+  food_safety_warnings: Array.isArray(
+    expiry.food_safety_warnings
+  )
+    ? expiry.food_safety_warnings.map(String)
+    : [],
+  expiry_reason: String(expiry.expiry_reason || "-")
+};
 
     const normalizedNutrition = {
       calories_estimate: pickNumber(nutrition.calories),
